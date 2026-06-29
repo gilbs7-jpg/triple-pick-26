@@ -1,0 +1,29 @@
+name: Update scores & table
+
+# Free external scheduler for the Hobby plan, where Vercel Cron only runs once/day.
+# Pings the deployed /api/cron-update endpoint, which fetches results and rebuilds
+# the league table (it no-ops cheaply when no gameweek is live).
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT branch,
+# so this takes effect once merged to main. Runs can be a few minutes late under
+# load, and you can always trigger a run manually from the Actions tab.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # every 15 minutes
+  workflow_dispatch:          # manual "Run workflow" button
+
+# Don't pile up overlapping runs.
+concurrency:
+  group: update-scores
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger results update
+        run: |
+          curl -fsS --max-time 60 -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://triple-pick.vercel.app/api/cron-update
