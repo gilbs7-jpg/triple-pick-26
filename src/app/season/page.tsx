@@ -21,7 +21,7 @@ export default function SeasonPage() {
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <StatTile icon={Users} label="Players" value={SEASON_STATS.players.toLocaleString()} />
         <StatTile icon={Coins} label="Prize pool" value={SEASON_STATS.prizePool} />
-        <StatTile icon={CalendarClock} label="Gameweeks left" value={String(SEASON_STATS.gameweeksLeft)} />
+        <StatTile icon={CalendarClock} label="Gameweeks left" value="36" />
       </div>
 
       {/* Leaderboard */}

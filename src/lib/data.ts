@@ -21,10 +21,24 @@ export const CURRENT_USER = {
 
 // ── Gameweek ───────────────────────────────────────────────────────────────
 
-export const CURRENT_GAMEWEEK = 1
+export const CURRENT_GAMEWEEK = 2
+
+const GW_LOCK_TIMES: Record<number, string> = {
+  1: '2026-08-21T19:00:00Z', // Arsenal vs Coventry KO 20:00 BST
+  2: '2026-08-29T14:00:00Z', // All GW2 KOs at 15:00 BST
+}
+
+const GW_OPEN_TIMES: Record<number, string> = {
+  1: '2026-08-18T09:00:00Z',
+  2: '2026-08-25T09:00:00Z',
+}
 
 export function getLockTime() {
-  return new Date('2026-08-21T18:00:00Z')
+  return new Date(GW_LOCK_TIMES[CURRENT_GAMEWEEK] ?? GW_LOCK_TIMES[1])
+}
+
+export function getNextGWOpenTime() {
+  return new Date(GW_OPEN_TIMES[CURRENT_GAMEWEEK + 1] ?? GW_OPEN_TIMES[1])
 }
 
 // ── Season stats (landing page) ────────────────────────────────────────────
@@ -88,11 +102,34 @@ export const PRIVATE_TABLE = [
   { rank: 2, username: 'ColleagueFC', played: 0, won: 0, drawn: 0, lost: 0, points: 0, gwScore: 0, trophies: 0, total: 0, isUser: false },
 ]
 
-export const WEEK_FIXTURES: Fixture[] = [
-  { home: 'ars', away: 'mci', time: '12:30', date: 'Sat 16 Aug', status: 'scheduled' },
-  { home: 'liv', away: 'mnu', time: '17:30', date: 'Sat 16 Aug', status: 'scheduled' },
-  { home: 'che', away: 'tot', time: '14:00', date: 'Sun 17 Aug', status: 'scheduled' },
-]
+const GW_FIXTURES: Record<number, Fixture[]> = {
+  1: [
+    { home: 'ars', away: 'cov', time: '20:00', date: 'Fri 21 Aug', status: 'finished' },
+    { home: 'hul', away: 'mnu', time: '12:30', date: 'Sat 22 Aug', status: 'finished' },
+    { home: 'eve', away: 'cry', time: '15:00', date: 'Sat 22 Aug', status: 'finished' },
+    { home: 'ips', away: 'sun', time: '15:00', date: 'Sat 22 Aug', status: 'finished' },
+    { home: 'nfo', away: 'lee', time: '15:00', date: 'Sat 22 Aug', status: 'finished' },
+    { home: 'bre', away: 'tot', time: '17:30', date: 'Sat 22 Aug', status: 'finished' },
+    { home: 'bha', away: 'avl', time: '14:00', date: 'Sun 23 Aug', status: 'finished' },
+    { home: 'mci', away: 'bou', time: '14:00', date: 'Sun 23 Aug', status: 'finished' },
+    { home: 'new', away: 'liv', time: '16:30', date: 'Sun 23 Aug', status: 'finished' },
+    { home: 'ful', away: 'che', time: '20:00', date: 'Mon 24 Aug', status: 'finished' },
+  ],
+  2: [
+    { home: 'avl', away: 'ars', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+    { home: 'bou', away: 'eve', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+    { home: 'che', away: 'bha', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+    { home: 'cov', away: 'hul', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+    { home: 'cry', away: 'mci', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+    { home: 'lee', away: 'bre', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+    { home: 'liv', away: 'nfo', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+    { home: 'mnu', away: 'ips', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+    { home: 'sun', away: 'ful', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+    { home: 'tot', away: 'new', time: '15:00', date: 'Sat 29 Aug', status: 'scheduled' },
+  ],
+}
+
+export const WEEK_FIXTURES: Fixture[] = GW_FIXTURES[CURRENT_GAMEWEEK] ?? []
 
 // ── Trophy room ────────────────────────────────────────────────────────────
 
@@ -155,7 +192,10 @@ export const TEAMS = [
   { id: 'sou', name: 'Southampton', abbr: 'SOU', short: 'Soton', color: '#D71920' },
   { id: 'tot', name: 'Tottenham', abbr: 'TOT', short: 'Spurs', color: '#132257' },
   { id: 'whu', name: 'West Ham', abbr: 'WHU', short: 'West Ham', color: '#7A263A' },
-  { id: 'wol', name: 'Wolves', abbr: 'WOL', short: 'Wolves', color: '#FDB913' },
+  { id: 'sun', name: 'Sunderland', abbr: 'SUN', short: 'Sunderland', color: '#EB172B' },
+  { id: 'cov', name: 'Coventry City', abbr: 'COV', short: 'Coventry', color: '#59B2D5' },
+  { id: 'hul', name: 'Hull City', abbr: 'HUL', short: 'Hull', color: '#F5A12E' },
+  { id: 'lee', name: 'Leeds United', abbr: 'LEE', short: 'Leeds', color: '#FFCD00' },
 ]
 
 export function teamById(id: string) {

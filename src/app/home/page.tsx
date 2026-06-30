@@ -1,26 +1,33 @@
 import Link from 'next/link'
-import { Clock, Globe, Swords, Users, Trophy, Crown, ArrowRight } from 'lucide-react'
+import { CalendarDays, Clock, Globe, Swords, Users, Trophy, Crown, ArrowRight } from 'lucide-react'
 import { PageShell } from '@/components/page-shell'
 import { Countdown } from '@/components/countdown'
 import { PickSelector } from '@/components/pick-selector'
-import {
-  CURRENT_GAMEWEEK,
-  CURRENT_USER,
-  getLockTime,
-  SEASON_LEADERBOARD,
-  PRO_FIXTURE,
-} from '@/lib/data'
+import { CURRENT_USER, SEASON_LEADERBOARD, PRO_FIXTURE } from '@/lib/data'
+import { getCurrentGameweek, getNextGameweek, getGameweekFixtures } from '@/lib/db'
 
 const quickLinks = [
-  { href: '/season', label: 'Season', icon: Globe, desc: 'Global leaderboard' },
-  { href: '/pro', label: 'Pro', icon: Swords, desc: 'Head-to-head divisions' },
-  { href: '/private', label: 'Private', icon: Users, desc: 'Your custom leagues' },
-  { href: '/trophy-room', label: 'Trophy Room', icon: Trophy, desc: 'Your silverware' },
-  { href: '/hall-of-fame', label: 'Hall of Fame', icon: Crown, desc: 'All-time greats' },
+  { href: '/season',      label: 'Season',       icon: Globe,   desc: 'Global leaderboard' },
+  { href: '/pro',         label: 'Pro',           icon: Swords,  desc: 'Head-to-head divisions' },
+  { href: '/private',     label: 'Private',       icon: Users,   desc: 'Your custom leagues' },
+  { href: '/trophy-room', label: 'Trophy Room',   icon: Trophy,  desc: 'Your silverware' },
+  { href: '/hall-of-fame',label: 'Hall of Fame',  icon: Crown,   desc: 'All-time greats' },
 ]
 
-export default function HomePage() {
-  const userRow = SEASON_LEADERBOARD.find((r) => r.isUser)
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    weekday: 'short', day: 'numeric', month: 'short',
+  })
+}
+
+export default async function HomePage() {
+  const userRow  = SEASON_LEADERBOARD.find((r) => r.isUser)
+  const gw       = await getCurrentGameweek()
+  const nextGW   = gw ? await getNextGameweek(gw.number) : null
+  const fixtures = gw ? await getGameweekFixtures(gw.id) : []
+
+  const lockTime   = gw     ? new Date(gw.pick_deadline)          : new Date()
+  const nextGWOpen = nextGW ? formatDate(nextGW.selection_opens_at) : null
 
   return (
     <PageShell>
@@ -32,14 +39,20 @@ export default function HomePage() {
               Welcome back, {CURRENT_USER.username}
             </p>
             <h1 className="mt-2 font-heading text-5xl font-bold uppercase tracking-tight sm:text-6xl">
-              Gameweek {CURRENT_GAMEWEEK}
+              Gameweek {gw?.number ?? '—'}
             </h1>
             <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="size-4 text-primary" />
               Picks lock in
             </p>
+            {nextGWOpen && (
+              <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                <CalendarDays className="size-4 text-primary/60" />
+                GW{(gw?.number ?? 0) + 1} opens {nextGWOpen}
+              </p>
+            )}
           </div>
-          <Countdown target={getLockTime()} />
+          <Countdown target={lockTime} />
         </div>
       </section>
 
@@ -51,11 +64,11 @@ export default function HomePage() {
               Your picks
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Choose three teams. 3 points for a win, 1 for a draw.
+              Choose three teams. Away win = 4pts · Home win = 3pts · Draw = 1pt.
             </p>
           </div>
         </div>
-        <PickSelector initialPicks={CURRENT_USER.picks} />
+        <PickSelector initialPicks={CURRENT_USER.picks} fixtures={fixtures} />
       </section>
 
       {/* Standing snapshot */}
@@ -96,9 +109,7 @@ export default function HomePage() {
                 <Icon className="size-5" />
               </div>
               <div className="flex-1">
-                <p className="font-heading text-lg font-bold uppercase leading-none">
-                  {label}
-                </p>
+                <p className="font-heading text-lg font-bold uppercase leading-none">{label}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{desc}</p>
               </div>
               <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
@@ -110,28 +121,13 @@ export default function HomePage() {
   )
 }
 
-function SnapshotCard({
-  label,
-  value,
-  sub,
-  href,
-}: {
-  label: string
-  value: string
-  sub: string
-  href: string
+function SnapshotCard({ label, value, sub, href }: {
+  label: string; value: string; sub: string; href: string
 }) {
   return (
-    <Link
-      href={href}
-      className="rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary"
-    >
-      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 font-heading text-3xl font-bold uppercase tracking-tight">
-        {value}
-      </p>
+    <Link href={href} className="rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className="mt-2 font-heading text-3xl font-bold uppercase tracking-tight">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
     </Link>
   )

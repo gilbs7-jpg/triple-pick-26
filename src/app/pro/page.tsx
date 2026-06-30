@@ -187,7 +187,7 @@ function FixtureSide({
   )
 }
 
-function FormDot({ result }: { result: 'W' | 'D' | 'L' }) {
+function FormDot({ result }: { result: string }) {
   const styles = {
     W: 'bg-primary text-primary-foreground',
     D: 'bg-secondary text-muted-foreground ring-1 ring-border',
@@ -197,7 +197,7 @@ function FormDot({ result }: { result: 'W' | 'D' | 'L' }) {
     <span
       className={cn(
         'inline-flex size-6 items-center justify-center rounded text-[10px] font-bold',
-        styles[result],
+        styles[result as 'W' | 'D' | 'L'],
       )}
     >
       {result}
