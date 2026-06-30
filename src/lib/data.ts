@@ -3,6 +3,8 @@
 export type Fixture = {
   home: string
   away: string
+  homeTeamId?: string
+  awayTeamId?: string
   time?: string
   date?: string
   homeScore?: number
