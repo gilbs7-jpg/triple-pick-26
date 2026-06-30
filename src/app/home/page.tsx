@@ -1,10 +1,18 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { CalendarDays, Clock, Globe, Swords, Users, Trophy, Crown, ArrowRight } from 'lucide-react'
 import { PageShell } from '@/components/page-shell'
 import { Countdown } from '@/components/countdown'
 import { PickSelector } from '@/components/pick-selector'
-import { CURRENT_USER, SEASON_LEADERBOARD, PRO_FIXTURE } from '@/lib/data'
-import { getCurrentGameweek, getNextGameweek, getGameweekFixtures } from '@/lib/db'
+import { SEASON_LEADERBOARD, PRO_FIXTURE } from '@/lib/data'
+import { createClient } from '@/lib/supabase/server'
+import {
+  getCurrentGameweek,
+  getNextGameweek,
+  getGameweekFixtures,
+  getTPSeasonLeagueId,
+  getUserPicksForGameweek,
+} from '@/lib/db'
 
 const quickLinks = [
   { href: '/season',      label: 'Season',       icon: Globe,   desc: 'Global leaderboard' },
@@ -21,22 +29,43 @@ function formatDate(iso: string) {
 }
 
 export default async function HomePage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', user.id)
+    .maybeSingle()
+
   const userRow  = SEASON_LEADERBOARD.find((r) => r.isUser)
   const gw       = await getCurrentGameweek()
   const nextGW   = gw ? await getNextGameweek(gw.number) : null
   const fixtures = gw ? await getGameweekFixtures(gw.id) : []
+  const leagueId = await getTPSeasonLeagueId()
+  const existingPicks = gw && leagueId
+    ? await getUserPicksForGameweek(user.id, gw.id, leagueId)
+    : []
+
+  const initialPicks = existingPicks.map((p) => ({
+    teamId: p.teamShortCode,
+    teamUuid: p.teamId,
+  }))
 
   const lockTime   = gw     ? new Date(gw.pick_deadline)          : new Date()
   const nextGWOpen = nextGW ? formatDate(nextGW.selection_opens_at) : null
 
   return (
     <PageShell>
-      {/* Gameweek banner */}
       <section className="mb-8 overflow-hidden rounded-2xl border border-border bg-card">
         <div className="flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-              Welcome back, {CURRENT_USER.username}
+              Welcome back, {profile?.username ?? 'Player'}
             </p>
             <h1 className="mt-2 font-heading text-5xl font-bold uppercase tracking-tight sm:text-6xl">
               Gameweek {gw?.number ?? '—'}
@@ -56,7 +85,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Picks */}
       <section className="mb-8 rounded-2xl border border-border bg-card p-6 sm:p-8">
         <div className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -68,10 +96,18 @@ export default async function HomePage() {
             </p>
           </div>
         </div>
-        <PickSelector initialPicks={CURRENT_USER.picks} fixtures={fixtures} />
+        {gw && leagueId ? (
+          <PickSelector
+            initialPicks={initialPicks}
+            fixtures={fixtures}
+            gameweekId={gw.id}
+            leagueId={leagueId}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">No active gameweek right now.</p>
+        )}
       </section>
 
-      {/* Standing snapshot */}
       <section className="mb-8 grid gap-4 sm:grid-cols-3">
         <SnapshotCard
           label="Season rank"
@@ -93,7 +129,6 @@ export default async function HomePage() {
         />
       </section>
 
-      {/* Quick nav */}
       <section>
         <h2 className="mb-4 font-heading text-2xl font-bold uppercase tracking-tight">
           Jump to

@@ -1,33 +1,70 @@
 'use client'
 
-import { useState } from 'react'
-import { Check, Lock, Pencil, Zap } from 'lucide-react'
+import { useState, useTransition } from 'react'
+import { Check, Lock, Pencil, Zap, AlertCircle } from 'lucide-react'
 import { TeamBadge } from '@/components/brand'
 import { teamById, type Fixture } from '@/lib/data'
 import { cn } from '@/lib/utils'
+import { submitPicks } from '@/app/actions/picks'
 
-type Pick = { teamId: string; fixtureIdx: number }
+type Pick = { teamId: string; teamUuid: string; fixtureIdx: number }
+type InitialPick = { teamId: string; teamUuid: string }
 
-export function PickSelector({ initialPicks, fixtures = [] }: { initialPicks: string[]; fixtures?: Fixture[] }) {
+export function PickSelector({
+  initialPicks,
+  fixtures = [],
+  gameweekId,
+  leagueId,
+}: {
+  initialPicks: InitialPick[]
+  fixtures?: Fixture[]
+  gameweekId: string
+  leagueId: string
+}) {
   const [picks, setPicks] = useState<Pick[]>(
-    initialPicks.map((id, i) => ({ teamId: id, fixtureIdx: i }))
+    initialPicks.map((p) => {
+      const fixtureIdx = fixtures.findIndex(
+        (f) => f.home === p.teamId || f.away === p.teamId
+      )
+      return { teamId: p.teamId, teamUuid: p.teamUuid, fixtureIdx }
+    })
   )
   const [editing, setEditing] = useState(initialPicks.length === 0)
   const [confirmed, setConfirmed] = useState(initialPicks.length > 0)
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
 
-  function selectTeam(teamId: string, fixtureIdx: number) {
+  function selectTeam(teamId: string, teamUuid: string, fixtureIdx: number) {
     setConfirmed(false)
+    setError(null)
     setPicks((prev) => {
       const withoutFixture = prev.filter((p) => p.fixtureIdx !== fixtureIdx)
       const existing = prev.find((p) => p.fixtureIdx === fixtureIdx)
       if (existing?.teamId === teamId) return withoutFixture
       if (withoutFixture.length >= 3) return prev
-      return [...withoutFixture, { teamId, fixtureIdx }]
+      return [...withoutFixture, { teamId, teamUuid, fixtureIdx }]
     })
   }
 
   function pickForFixture(fixtureIdx: number) {
     return picks.find((p) => p.fixtureIdx === fixtureIdx)
+  }
+
+  function handleConfirm() {
+    setError(null)
+    startTransition(async () => {
+      const result = await submitPicks(
+        gameweekId,
+        leagueId,
+        picks.map((p) => p.teamUuid)
+      )
+      if (result.success) {
+        setConfirmed(true)
+        setEditing(false)
+      } else {
+        setError(result.error ?? 'Something went wrong. Try again.')
+      }
+    })
   }
 
   const pickCount = picks.length
@@ -75,7 +112,6 @@ export function PickSelector({ initialPicks, fixtures = [] }: { initialPicks: st
 
   return (
     <div>
-      {/* Progress */}
       <div className="mb-6 flex items-center justify-between">
         <p className="text-sm text-white/50">
           <span className="font-heading text-2xl font-bold text-white">{pickCount}</span>
@@ -94,7 +130,13 @@ export function PickSelector({ initialPicks, fixtures = [] }: { initialPicks: st
         </div>
       </div>
 
-      {/* Fixture cards */}
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="size-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {fixtures.map((fixture, idx) => {
           const home = teamById(fixture.home)
@@ -121,7 +163,6 @@ export function PickSelector({ initialPicks, fixtures = [] }: { initialPicks: st
                   : '0 0 0 1px rgba(255,255,255,0.07), 0 4px 16px rgba(0,0,0,0.3)',
               }}
             >
-              {/* Neon top edge when picked */}
               {currentPick && (
                 <div
                   className="absolute inset-x-0 top-0 h-px"
@@ -129,7 +170,6 @@ export function PickSelector({ initialPicks, fixtures = [] }: { initialPicks: st
                 />
               )}
 
-              {/* Fixture meta row — date left, KO time right, NO absolute badge */}
               <div className="flex items-center justify-between px-4 pt-4 pb-2">
                 <span className="font-heading text-xs font-bold uppercase tracking-widest text-white">
                   {fixture.date}
@@ -149,13 +189,11 @@ export function PickSelector({ initialPicks, fixtures = [] }: { initialPicks: st
                 </div>
               </div>
 
-              {/* Team buttons */}
               <div className="flex items-stretch px-3 pb-4 pt-1">
-                {/* Home */}
                 <button
                   type="button"
                   disabled={!canPick && !homePicked}
-                  onClick={() => selectTeam(fixture.home, idx)}
+                  onClick={() => selectTeam(fixture.home, fixture.homeTeamId ?? '', idx)}
                   className={cn(
                     'group relative flex flex-1 flex-col items-center gap-2.5 rounded-xl px-3 py-3 transition-all duration-200',
                     homePicked
@@ -177,18 +215,16 @@ export function PickSelector({ initialPicks, fixtures = [] }: { initialPicks: st
                   )}
                 </button>
 
-                {/* VS divider */}
                 <div className="flex flex-col items-center justify-center px-2 gap-1">
                   <div className="h-8 w-px bg-white/8" />
                   <span className="font-heading text-[10px] font-bold tracking-widest text-white/20">VS</span>
                   <div className="h-8 w-px bg-white/8" />
                 </div>
 
-                {/* Away */}
                 <button
                   type="button"
                   disabled={!canPick && !awayPicked}
-                  onClick={() => selectTeam(fixture.away, idx)}
+                  onClick={() => selectTeam(fixture.away, fixture.awayTeamId ?? '', idx)}
                   className={cn(
                     'group relative flex flex-1 flex-col items-center gap-2.5 rounded-xl px-3 py-3 transition-all duration-200',
                     awayPicked
@@ -215,19 +251,20 @@ export function PickSelector({ initialPicks, fixtures = [] }: { initialPicks: st
         })}
       </div>
 
-      {/* Confirm */}
       <button
         type="button"
-        disabled={pickCount !== 3}
-        onClick={() => { setConfirmed(true); setEditing(false) }}
+        disabled={pickCount !== 3 || isPending}
+        onClick={handleConfirm}
         className={cn(
           'mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 font-heading text-sm font-bold uppercase tracking-widest transition-all duration-200 sm:w-auto',
-          pickCount === 3
+          pickCount === 3 && !isPending
             ? 'bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/25'
             : 'cursor-not-allowed bg-white/5 text-white/20',
         )}
       >
-        {pickCount === 3 ? (
+        {isPending ? (
+          <>Saving…</>
+        ) : pickCount === 3 ? (
           <><Zap className="size-4" />Confirm picks</>
         ) : (
           <><Lock className="size-4" />Select {3 - pickCount} more</>
